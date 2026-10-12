@@ -41,6 +41,14 @@ pub fn core_main() -> Option<Vec<String>> {
     if !crate::common::global_init() {
         return None;
     }
+    #[cfg(windows)]
+    if config::APP_NAME.read().unwrap().as_str() == "FloadeRemote"
+        && config::LocalConfig::get_option("floade-device-id-initialized") != "Y"
+    {
+        // MAC-derived upstream IDs collide with an existing RustDesk on this host.
+        config::Config::update_id();
+        config::LocalConfig::set_option("floade-device-id-initialized".to_owned(), "Y".to_owned());
+    }
     crate::load_custom_client();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {

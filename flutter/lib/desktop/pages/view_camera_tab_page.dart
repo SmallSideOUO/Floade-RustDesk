@@ -386,7 +386,7 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
 
   Future<dynamic> _remoteMethodHandler(call, fromWindowId) async {
     debugPrint(
-        "[View Camera Page] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+        "[View Camera Page] call ${call.method} from window $fromWindowId");
 
     dynamic returnValue;
     // for simplify, just replace connectionId

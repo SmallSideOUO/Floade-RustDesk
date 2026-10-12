@@ -22,5 +22,5 @@ foreach ($base in @('.floade-tools/flutter/bin/cache/artifacts/engine/windows-x6
 [System.IO.File]::WriteAllText((Join-Path $output 'THIRD-PARTY-NATIVE-NOTICES.txt'), $notices.ToString(), [System.Text.UTF8Encoding]::new($false))
 $hashes = @{}
 Get-ChildItem -LiteralPath $output -File -Recurse | Where-Object { $_.Name -ne 'floade-build.json' } | ForEach-Object { $hashes[$_.FullName.Substring($output.Length + 1).Replace('\','/')] = (Get-FileHash -LiteralPath $_.FullName).Hash }
-@{ schema = 1; upstream_version = '1.5.0'; source_repository = 'https://github.com/SmallSideOUO/Floade-RustDesk'; source_commit = (git rev-parse HEAD); files = $hashes } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'floade-build.json') -Encoding utf8
+@{ schema = 1; upstream_version = '1.5.0'; source_repository = 'https://github.com/SmallSideOUO/Floade-RustDesk'; source_commit = (git rev-parse HEAD); flutter_engine = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'floade-engine.json') -Raw | ConvertFrom-Json); files = $hashes } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'floade-build.json') -Encoding utf8
 Write-Output "Branded runtime: $output"

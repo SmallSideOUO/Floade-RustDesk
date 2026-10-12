@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:window_manager/window_manager.dart';
 import '../common.dart';
 import '../models/platform_model.dart';
@@ -67,6 +66,13 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
         await bind.mainSetLocalOption(key: 'allow-d3d-render', value: value);
         await bind.mainSetLocalOption(key: 'use-texture-render', value: value);
       }
+      for (final entry in {'tcpPunch': 'enable-tcp-punch',
+        'udpPunch': 'enable-udp-punch', 'webrtc': 'enable-webrtc'}.entries) {
+        if (settings.containsKey(entry.key)) {
+          await bind.mainSetLocalOption(key: entry.value,
+            value: settings[entry.key] == true ? 'Y' : 'N');
+        }
+      }
       for (final entry in {'fps': 'custom-fps', 'quality': 'custom_image_quality', 'codec': 'codec-preference'}.entries) {
         if (settings.containsKey(entry.key)) await bind.mainSetUserDefaultOption(key: entry.value, value: settings[entry.key].toString());
       }
@@ -103,9 +109,7 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'disconnect':
       final id = p['windowId'] as int;
       if (!(await rustDeskWinManager.getAllSubWindowIds()).contains(id)) throw StateError('Window absent');
-      final window = WindowController.fromWindowId(id);
-      await window.setPreventClose(false);
-      await window.close();
+      await rustDeskWinManager.closeFloadeWindow(id);
       return {'disconnected': true};
     case 'forget':
       final id = p['deviceId'] as String;

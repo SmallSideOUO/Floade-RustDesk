@@ -422,7 +422,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 
   Future<dynamic> _remoteMethodHandler(call, fromWindowId) async {
     debugPrint(
-        "[Remote Page] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+        "[Remote Page] call ${call.method} from window $fromWindowId");
 
     dynamic returnValue;
     // for simplify, just replace connectionId

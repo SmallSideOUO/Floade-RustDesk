@@ -58,7 +58,7 @@ class _PortForwardTabPageState extends State<PortForwardTabPage> {
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       debugPrint(
-          "[Port Forward] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+          "[Port Forward] call ${call.method} from window $fromWindowId");
       // for simplify, just replace connectionId
       if (call.method == kWindowEventNewPortForward) {
         final args = jsonDecode(call.arguments);

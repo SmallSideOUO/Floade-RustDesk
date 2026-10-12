@@ -14,6 +14,7 @@ Copy-Item -LiteralPath (Join-Path $env:LIBCLANG_PATH 'libclang.dll') -Destinatio
 $env:PATH = "$root/.floade-tools/flutter/bin;$env:CARGO_HOME/bin;$env:PATH"
 $env:FLUTTER_SUPPRESS_ANALYTICS = 'true'
 $env:RUST_LOG = 'info'
+& (Join-Path $PSScriptRoot 'floade-prepare-engine.ps1')
 & "$env:CARGO_HOME/bin/flutter_rust_bridge_codegen.exe" --rust-input src/flutter_ffi.rs --dart-output flutter/lib/generated_bridge.dart --c-output flutter/macos/Runner/bridge_generated.h --llvm-path $llvmRoot *> .floade-tools/floade-bridge.log
 if ($LASTEXITCODE -ne 0) { Get-Content .floade-tools/floade-bridge.log -Tail 25; throw 'Bridge generation failed' }
 & "$env:CARGO_HOME/bin/cargo.exe" build --locked --lib --release --features flutter,hwcodec,vram -j $Jobs *> .floade-tools/floade-native.log

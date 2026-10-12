@@ -453,6 +453,14 @@ class RustDeskMultiWindowManager {
     await Future.wait(WindowType.values.map((e) => _closeWindows(e)));
   }
 
+  // Follow the native tab-close lifecycle so its Flutter engine remains reusable.
+  Future<void> closeFloadeWindow(int id) async {
+    await DesktopMultiWindow.invokeMethod(id, 'onDestroy');
+    final window = WindowController.fromWindowId(id);
+    await window.hide();
+    await unregisterActiveWindow(id);
+  }
+
   Future<void> _closeWindows(WindowType type) async {
     if (type == WindowType.Main) {
       // skip main window, use window manager instead

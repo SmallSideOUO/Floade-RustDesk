@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/rustdesk/engine",
+  "commit": "bc374ca81eae3f77329ebf7bc98efadfde10018e",
+  "assetUrl": "https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip",
+  "assetSha256": "ec8cabf36ee4ff24c8d98de25b00e70781eb03876265aee84d0fe554a110036e",
+  "flutterVersion": "3.24.5"
+}

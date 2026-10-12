@@ -25,3 +25,5 @@ Client decode/presentation and statistics changes are opt-in with FLOADE_RUSTDES
 The per-user engine can receive connections on the signed-in desktop. Windows login-screen/UAC access requires native service installation and administrator privileges. P2P may fall back to relay. Diagnostic delay is a shared-channel measurement, not mouse-to-display latency, and the FPS metric counts presentation submissions. See FLOADE-PERFORMANCE.md for the earlier test baseline and its limits.
 
 Floade initializes its device ID once with the upstream random-ID operation and persists a local marker. A separate profile alone is insufficient: upstream MAC-derived IDs can otherwise collide with an existing RustDesk on the same host. Later restarts preserve the initialized ID and existing password/key material.
+
+The stager also collects the pinned Flutter engine notices, vcpkg copyright files and cached Rust dependency licenses into THIRD-PARTY-NATIVE-NOTICES.txt; Flutter's generated asset notices remain included. These text files are part of the checksummed runtime.

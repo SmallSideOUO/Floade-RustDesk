@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import '../models/platform_model.dart';
 
 Future<Map<String, dynamic>> floadeAccess(Map<String, dynamic>? update) async {
@@ -21,9 +22,13 @@ Future<Map<String, dynamic>> floadeAccess(Map<String, dynamic>? update) async {
     }
     state['enabled'] = update['enabled'];
     state['devices'] = devices;
+    if (devices.isEmpty) {
+      final random = Random.secure();
+      state['denyId'] = 'floade-denied-${base64Url.encode(List.generate(32, (_) => random.nextInt(256)))}';
+    }
     // An empty enabled list must deny all, rather than mean unrestricted access.
     await bind.mainSetOption(key: 'id-whitelist', value: state['enabled'] == true
-        ? (devices.isEmpty ? '000000' : devices.map((d) => d['deviceId']).join(','))
+        ? (devices.isEmpty ? state['denyId'] as String : devices.map((d) => d['deviceId']).join(','))
         : (state['previousWhitelist'] as String? ?? ''));
     await bind.mainSetOption(key: 'access-mode', value: state['enabled'] == true
         ? 'full' : (state['previousMode'] as String? ?? ''));
@@ -35,7 +40,7 @@ Future<Map<String, dynamic>> floadeAccess(Map<String, dynamic>? update) async {
   final mode = await bind.mainGetOption(key: 'access-mode');
   final whitelist = await bind.mainGetOption(key: 'id-whitelist');
   final devices = List<dynamic>.from(state['devices']);
-  final expected = devices.isEmpty ? '000000'
+  final expected = devices.isEmpty ? state['denyId'] as String? ?? ''
       : devices.map((d) => d['deviceId']).join(',');
   return {'enabled': state['enabled'], 'devices': devices,
     'effective': state['enabled'] == true && mode == 'full' && whitelist == expected,

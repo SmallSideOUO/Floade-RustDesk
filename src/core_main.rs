@@ -44,9 +44,12 @@ pub fn core_main() -> Option<Vec<String>> {
     #[cfg(windows)]
     if config::APP_NAME.read().unwrap().as_str() == "FloadeRemote"
         && config::LocalConfig::get_option("floade-device-id-initialized") != "Y"
+        && !std::env::args().any(|arg| arg == "--import-config")
     {
         // MAC-derived upstream IDs collide with an existing RustDesk on this host.
-        config::Config::update_id();
+        if !crate::platform::windows::floade::existing_id(&config::Config::get_id()) {
+            config::Config::update_id();
+        }
         config::LocalConfig::set_option("floade-device-id-initialized".to_owned(), "Y".to_owned());
     }
     crate::load_custom_client();
@@ -755,6 +758,11 @@ pub fn core_main() -> Option<Vec<String>> {
 }
 
 fn import_config(path: &str) {
+    #[cfg(windows)]
+    if let Some(result) = crate::platform::windows::floade::import_config(path) {
+        if let Err(error) = result { log::error!("Floade configuration import failed: {error}"); }
+        return;
+    }
     use hbb_common::{config::*, get_exe_time, get_modified_time};
     let path2 = path.replace(".toml", "2.toml");
     let path2 = std::path::Path::new(&path2);

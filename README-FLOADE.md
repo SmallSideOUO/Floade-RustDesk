@@ -1,0 +1,25 @@
+# Floade Remote engine
+
+This is an independent AGPL-3.0 modification of RustDesk 1.5.0 (upstream fada664df7a294d1d1a9ca3e7cd3637069122f17). The Flutter remote windows and connection manager remain native; Floade-need supplies the landing page, manual preferences and local named-pipe API. The managed frontend starts hidden with --floade-managed. The executable must be named FloadeRemote.exe to select its independent native identity/profile. No RustDesk host identity is copied.
+
+## Rebuild on Windows x64
+
+Install Visual Studio 2022 Desktop development with C++, Git, Python, and Flutter 3.24.5. Clone this repository with --recurse-submodules. Apply .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff to that Flutter checkout, as in upstream CI. Do not upgrade Flutter or the FFI bridge independently.
+
+The supplied scripts use isolated tooling under .floade-tools: rustup (Rust 1.75.0 and rustfmt), cargo, flutter, llvm, and vcpkg. Set RUSTUP_HOME and CARGO_HOME to those directories when bootstrapping Rust. Create the current user's .frd-cargo directory junction targeting this checkout's .floade-tools/cargo to keep dependency paths short on Windows. Install cargo-expand 1.0.95 and flutter_rust_bridge_codegen 1.80.1 with --locked and --features uuid for the latter. The original upstream bridge workflow documents generator dependencies.
+
+Use vcpkg commit 9e593bb18ea69cc5095e012465dcd675a822ed0d with the committed vcpkg.json/vcpkg-configuration.json and x64-windows-static triplet. Install the default dependencies plus hwcodec and av1 features (FFmpeg 7.1.1, libvpx, AOM, Opus, libyuv and JPEG dependencies). scripts/floade-build.ps1 validates required headers. Supply LLVM libclang 15: this build used the libclang 15.0.6.1 Python wheel extracted under .floade-tools/llvm. The UI build script creates the bin/libclang.dll layout needed by Dart ffigen without changing the Windows registry.
+
+Clone Flutter tag 3.24.5 into .floade-tools/flutter, run flutter precache --windows, then flutter pub get in flutter/. If developer-mode symlinks are unavailable, precreate directory junctions under flutter/windows/flutter/ephemeral/.plugin_symlinks for the paths in .flutter-plugins-dependencies and rerun pub get. This requires no administrator privileges. Use the committed pubspec.lock.
+
+Use the Flutter Windows engine shipped with the pinned SDK, engine revision a18df97ca57a249df5d8d68cd0820600223ce262; its corresponding source is https://github.com/flutter/engine. The upstream RustDesk 1.5.0 prebuilt custom flutter_windows.dll aborts with the newly generated AOT snapshot, so it is deliberately not mixed into this runtime. The application, native library, plugins and Flutter AOT snapshot are rebuilt together. The earlier performance prototype used an official prebuilt frontend; this branded runtime uses the newly built frontend.
+
+Run scripts/floade-build-ui.ps1. It generates both Rust and Dart bridge files, builds the native library with flutter,hwcodec,vram, builds Flutter with FLOADE_REMOTE=true, and stages a checksummed runtime under floade-artifacts/branded-windows-x64. scripts/floade-test-core.ps1 runs the three presentation/feedback regressions; flutter analyze --no-pub lib/floade/control.dart checks the local control implementation. Native test runs use cargo test --locked --lib --features flutter,hwcodec,vram client::low_latency.
+
+Copy the staged runtime into Floade-need/vendor/remote/windows-x64 before packaging that application. Include the exact source revision, license, runtime manifest and these build instructions in the corresponding release. The native per-launch control token stays only in the current user's profile and must never be included in release assets.
+
+## Changed paths and limits
+
+Client decode/presentation and statistics changes are opt-in with FLOADE_RUSTDESK_LOW_LATENCY=1; decoding order and media recording are retained. core_main selects a separate profile by executable name and accepts the managed-start flag. flutter_ffi adds a validated peer-display preference operation. Flutter main starts the loopback capability bridge and hides the main page; the native tabbar/theme/resource files provide Floade branding. One legacy debug statement was redacted because it exposed connection arguments. Original paths remain when the feature is disabled or the executable has its original name.
+
+The per-user engine can receive connections on the signed-in desktop. Windows login-screen/UAC access requires native service installation and administrator privileges. P2P may fall back to relay. Diagnostic delay is a shared-channel measurement, not mouse-to-display latency, and the FPS metric counts presentation submissions. See FLOADE-PERFORMANCE.md for the earlier test baseline and its limits.

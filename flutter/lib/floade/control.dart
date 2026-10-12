@@ -64,6 +64,9 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
         if (!settings.containsKey(entry.key)) continue;
         final value = settings[entry.key];
         final encoded = value is bool ? (entry.key == 'acceptConnections' ? (value ? '' : 'Y') : (value ? 'Y' : 'N')) : value.toString();
+        // An unchanged stop-service write reinstalls the Windows system service.
+        if (entry.value == 'stop-service' &&
+            await bind.mainGetOption(key: entry.value) == encoded) continue;
         await bind.mainSetOption(key: entry.value, value: encoded);
       }
       if (settings.containsKey('gpu')) {

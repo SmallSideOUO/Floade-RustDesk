@@ -2830,6 +2830,10 @@ bool isRunningInPortableMode() {
 Future<void> onActiveWindowChanged() async {
   print(
       "[MultiWindowHandler] active window changed: ${rustDeskWinManager.getActiveWindows()}");
+  if (const bool.fromEnvironment('FLOADE_REMOTE') &&
+      kBootArgs.contains('--floade-managed')) {
+    return; // Floade owns the hidden engine lifecycle, including explicit shutdown.
+  }
   if (rustDeskWinManager.getActiveWindows().isEmpty) {
     // close all sub windows
     try {

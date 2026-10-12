@@ -479,7 +479,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       ));
     } else if (call.method == kWindowDisableGrabKeyboard) {
       // ???
-    } else if (call.method == "onDestroy") {
+    } else if (call.method == "onDestroy" ||
+        (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_disconnect')) {
       tabController.clear();
     } else if (call.method == kWindowActionRebuild) {
       reloadCurrentWindow();

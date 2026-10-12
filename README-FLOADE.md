@@ -29,3 +29,9 @@ Floade initializes its device ID once with the upstream random-ID operation and 
 The stager also collects the pinned Flutter engine notices, vcpkg copyright files and cached Rust dependency licenses into THIRD-PARTY-NATIVE-NOTICES.txt; Flutter's generated asset notices remain included. These text files are part of the checksummed runtime.
 
 Floade control exposes the native TCP/UDP/WebRTC punch options without modifying the wire protocol. API disconnect clears native tabs and hides their window for reuse, rather than destroying a Flutter sub-engine. Credential-bearing method arguments are excluded from desktop tab diagnostics.
+
+## Incoming full access
+
+The managed local control exposes `accessGet` and `accessSet`, implemented in `flutter/lib/floade/access.dart`. This opts into the existing full access mode with an incoming ID allowlist; password authentication remains mandatory. IDs are self-reported and are a filter, not cryptographic device identity. An enabled empty list uses a nonmatching sentinel to deny all; disabling restores the previous native mode/filter. Changes apply to new incoming sessions. Existing Rust authentication, permission checks and Windows system-service installer paths are unchanged.
+
+Floade-need invokes the upstream native silent installer (printer=0) to create the independent `FloadeRemote` LocalSystem service in Program Files. Administrator/UAC/login-screen support requires actual Windows consent and service readiness; requesting installation alone does not establish either.

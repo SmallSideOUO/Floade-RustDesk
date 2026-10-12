@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import '../common.dart';
 import '../models/platform_model.dart';
 import '../utils/multi_window_manager.dart';
+import 'access.dart';
 
 // Only the local Floade process knows this per-launch capability token.
 Future<void> startFloadeControl() async {
@@ -43,6 +44,10 @@ Future<void> startFloadeControl() async {
 
 Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
   switch (method) {
+    case 'accessGet':
+      return floadeAccess(null);
+    case 'accessSet':
+      return floadeAccess(p);
     case 'status':
       return {'deviceId': await bind.mainGetMyId(),
         'connection': jsonDecode(await bind.mainGetConnectStatus()),

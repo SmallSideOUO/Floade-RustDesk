@@ -13,6 +13,8 @@ use base::message_proto::*;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use rdev::KeyCode;
 use rdev::{Event, EventType, Key};
+#[cfg(all(feature = "flutter", target_os = "windows"))]
+mod floade_relative_mouse;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
@@ -199,6 +201,8 @@ pub mod client {
 
                 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                 KEYBOARD_HOOKED.store(true, Ordering::SeqCst);
+                #[cfg(all(feature = "flutter", target_os = "windows"))]
+                floade_relative_mouse::reset();
 
                 #[cfg(target_os = "linux")]
                 let had_owner = gs.owner.is_some();
@@ -569,6 +573,10 @@ fn can_exit_relative_mouse_mode_from_grab_loop() -> bool {
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 #[inline]
 fn should_block_relative_mouse_shortcut(key: Key, is_press: bool) -> bool {
+    #[cfg(target_os = "windows")]
+    if let Some(blocked) = floade_relative_mouse::handle(key, is_press) {
+        return blocked;
+    }
     if !KEYBOARD_HOOKED.load(Ordering::SeqCst) {
         return false;
     }

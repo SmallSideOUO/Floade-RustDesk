@@ -81,6 +81,10 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
             value: settings[entry.key] == true ? 'Y' : 'N');
         }
       }
+      if (settings.containsKey('relativeMouseShortcut')) {
+        await bind.mainSetLocalOption(key: 'floade-relative-mouse-shortcut',
+            value: settings['relativeMouseShortcut'].toString());
+      }
       for (final entry in {'fps': 'custom-fps', 'quality': 'custom_image_quality', 'codec': 'codec-preference'}.entries) {
         if (settings.containsKey(entry.key)) await bind.mainSetUserDefaultOption(key: entry.value, value: settings[entry.key].toString());
       }

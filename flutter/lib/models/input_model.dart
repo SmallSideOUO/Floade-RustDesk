@@ -508,6 +508,7 @@ class InputModel {
       setPointerInsideImage: (inside) => _pointerInsideImage = inside,
     );
     _relativeMouse.onDisabled = () => onRelativeMouseModeDisabled?.call();
+    _relativeMouse.onShortcut = toggleRelativeMouseModeWithKeyRelease;
 
     // Sync relative mouse mode state to global state for UI components (e.g., tab bar hint).
     _relativeMouseModeDisposer = ever(relativeMouseMode, (bool value) {
@@ -1226,8 +1227,12 @@ class InputModel {
   /// This is called when the user presses the exit shortcut (Ctrl+Alt on Win/Linux, Cmd+G on macOS).
   /// We need to send key-up events for all modifiers because the shortcut itself may have
   /// blocked some key events, leaving the remote in a state where modifiers are stuck.
-  void exitRelativeMouseModeWithKeyRelease() {
-    if (!_relativeMouse.enabled.value) return;
+  void toggleRelativeMouseModeWithKeyRelease() {
+    exitRelativeMouseModeWithKeyRelease(toggle: true);
+  }
+
+  void exitRelativeMouseModeWithKeyRelease({bool toggle = false}) {
+    if (!_relativeMouse.enabled.value && !toggle) return;
 
     // First, send release events for all modifier keys to the remote.
     // This ensures the remote doesn't have stuck modifier keys after exiting.
@@ -1260,7 +1265,13 @@ class InputModel {
     resetModifiers();
 
     // Now exit relative mouse mode
-    _relativeMouse.setRelativeMouseMode(false);
+    if (toggle) {
+      toReleaseRawKeys.reset();
+      toReleaseKeys.reset();
+      _relativeMouse.toggleRelativeMouseMode();
+    } else {
+      _relativeMouse.setRelativeMouseMode(false);
+    }
   }
 
   void disposeRelativeMouseMode() {

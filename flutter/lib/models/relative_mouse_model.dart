@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/utils/relative_mouse_accumulator.dart';
+import 'package:flutter_hbb/utils/floade_mouse_shortcut.dart';
 import 'package:get/get.dart';
 
 import '../common.dart';
@@ -186,6 +187,8 @@ class RelativeMouseModel {
 
   // Callback to cancel external throttle timer when relative mouse mode is disabled.
   VoidCallback? onDisabled;
+  VoidCallback? onShortcut;
+  final _floadeShortcut = FloadeMouseShortcutLatch();
 
   bool get isSupported {
     // On Linux/Wayland, cursor warping is not supported, hide the option entirely.
@@ -238,6 +241,13 @@ class RelativeMouseModel {
   }) {
     if (!isDesktop || !keyboardPerm() || isViewCamera()) return false;
 
+    if (MyTheme.floade && isWindows) {
+      if (!isSupported || (!isKeyDown && !isKeyUp)) return false;
+      final shortcut = FloadeMouseShortcut.parse(bind.mainGetLocalOption(key: floadeMouseShortcutOption)) ??
+          FloadeMouseShortcut.parse('Ctrl+Alt')!;
+      return _floadeShortcut.handle(logicalKey, isKeyDown, shortcut, () => onShortcut?.call());
+    }
+
     // Only handle exit shortcuts when relative mouse mode is active
     if (!enabled.value) return false;
 
@@ -287,7 +297,7 @@ class RelativeMouseModel {
     return _handleExitShortcut(
       logicalKey: e.logicalKey,
       isKeyUp: e is KeyUpEvent,
-      isKeyDown: e is KeyDownEvent,
+      isKeyDown: e is KeyDownEvent || (MyTheme.floade && isWindows && e is KeyRepeatEvent),
       ctrlPressed: ctrlPressed,
       altPressed: altPressed,
       commandPressed: commandPressed,
@@ -333,6 +343,7 @@ class RelativeMouseModel {
   }
 
   void onWindowBlur() {
+    _floadeShortcut.reset();
     if (!enabled.value) return;
 
     // Focus can change while the pointer is outside the window (e.g. taskbar activation).
@@ -484,9 +495,15 @@ class RelativeMouseModel {
 
     // Show toast notification so user knows how to exit relative mouse mode (desktop only).
     if (isDesktop) {
-      showToast(
+      if (MyTheme.floade && isWindows) {
+        final shortcut = FloadeMouseShortcut.parse(bind.mainGetLocalOption(key: floadeMouseShortcutOption)) ??
+            FloadeMouseShortcut.parse('Ctrl+Alt')!;
+        showToast('${translate('Relative mouse mode')} · ${shortcut.label}', alignment: Alignment.center);
+      } else {
+        showToast(
           translate('rel-mouse-exit-{${isMacOS ? "Cmd+G" : "Ctrl+Alt"}}-tip'),
           alignment: Alignment.center);
+      }
     }
 
     // Best-effort marker for Rust rdev grab loop (ESC behavior) and peer/server state.

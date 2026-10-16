@@ -26,6 +26,8 @@ void main() {
     }
     floadeConnectionEvent('session-b', {'name': 'msgbox', 'type': 'error', 'title': 'Connection Error', 'text': 'Failed to connect'});
     expect(floadeConnectionStatus('987654321', ['987654321'])['state'], 'network-error');
+    floadeConnectionEvent('session-b', {'name': 'msgbox', 'type': 'error', 'text': 'Failed to resolve (os error 11001)'});
+    expect(floadeConnectionStatus('987654321', ['987654321'])['state'], 'network-unavailable');
   });
 
   test('a new session cannot inherit a previous successful image or late errors', () {

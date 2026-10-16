@@ -25,7 +25,7 @@ void floadeConnectionEvent(String session, Map<String, dynamic> event) {
         RegExp('password|denied|not allowed|not in.*whitelist|whitelist|allowlist|permission|2fa|two.factor', caseSensitive: false).hasMatch('$title $text')) {
       status['state'] = 'user-action';
     } else if (type.contains('error') || type.startsWith('restarting') || title == 'Connection Error') {
-      status['state'] = 'network-error';
+      status['state'] = RegExp('11001|failed to resolve|network is unreachable|10051', caseSensitive: false).hasMatch(text) ? 'network-unavailable' : 'network-error';
       status['video'] = false;
     }
   }

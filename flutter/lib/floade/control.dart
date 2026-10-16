@@ -10,13 +10,28 @@ import 'access.dart';
 
 // Only the local Floade process knows this per-launch capability token.
 Future<void> startFloadeControl() async {
+  var delay = 1;
+  while (true) {
+    try { await _runFloadeControl(); } catch (_) {
+      // No command arguments or capability token may enter diagnostics.
+      print('Floade control unavailable; retrying in ${delay}s.');
+    }
+    await Future.delayed(Duration(seconds: delay));
+    delay = min(delay * 2, 30);
+  }
+}
+
+Future<void> _runFloadeControl() async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  try {
   final random = Random.secure();
   final token = base64Url.encode(List.generate(32, (_) => random.nextInt(256)));
   final directory = Directory('${Platform.environment['APPDATA']}/FloadeRemote');
   await directory.create(recursive: true);
   final endpoint = File('${directory.path}/control.json');
-  await endpoint.writeAsString(jsonEncode({'port': server.port, 'token': token, 'pid': pid, 'schema': 1}));
+  final temporaryEndpoint = File('${endpoint.path}.tmp');
+  await temporaryEndpoint.writeAsString(jsonEncode({'port': server.port, 'token': token, 'pid': pid, 'schema': 1}), flush: true);
+  await temporaryEndpoint.rename(endpoint.path);
   await for (final request in server) {
     request.response.headers.contentType = ContentType.json;
     try {
@@ -32,7 +47,7 @@ Future<void> startFloadeControl() async {
           if (bytes.length > 65536) throw const FormatException('Request too large');
         }
         final command = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-        final result = await _dispatch(command['method'] as String, Map<String, dynamic>.from(command['params'] ?? {}));
+        final result = await _dispatch(command['method'] as String, Map<String, dynamic>.from(command['params'] ?? {})).timeout(const Duration(seconds: 12));
         request.response.write(jsonEncode({'ok': true, 'result': result}));
       }
     } catch (_) {
@@ -41,6 +56,7 @@ Future<void> startFloadeControl() async {
     }
     await request.response.close();
   }
+  } finally { await server.close(force: true); }
 }
 
 Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
@@ -50,9 +66,9 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'accessSet':
       return floadeAccess(p);
     case 'status':
-      return {'deviceId': await bind.mainGetMyId(),
+      return {'pid': pid, 'deviceId': await bind.mainGetMyId(),
         'connection': jsonDecode(await bind.mainGetConnectStatus()),
-        'autoConnectStatus': true, 'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
+        'autoConnectStatus': true, 'backgroundOnly': true, 'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
         'windows': rustDeskWinManager.getActiveWindows().where((id) => id > 0).toList(),
         'installedService': bind.mainIsInstalled()};
     case 'apply':
@@ -123,7 +139,7 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'sessionStatus':
       final id = p['windowId'] as int;
       if (!rustDeskWinManager.getActiveWindows().contains(id)) return {'state': 'closed'};
-      return await DesktopMultiWindow.invokeMethod(id, 'floade_connection_status', p['deviceId']);
+      return await DesktopMultiWindow.invokeMethod(id, 'floade_connection_status', p['deviceId']).timeout(const Duration(seconds: 3));
     case 'disconnect':
       final id = p['windowId'] as int;
       if (!(await rustDeskWinManager.getAllSubWindowIds()).contains(id)) throw StateError('Window absent');

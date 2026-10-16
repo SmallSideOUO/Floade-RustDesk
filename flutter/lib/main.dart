@@ -134,7 +134,7 @@ Future<void> initEnv(String appType) async {
 void runMainApp(bool startService) async {
   // register uni links
   await initEnv(kAppTypeMain);
-  if (kBootArgs.contains('--floade-managed')) {
+  if (const bool.fromEnvironment('FLOADE_REMOTE') || kBootArgs.contains('--floade-managed')) {
     await bind.mainSetLocalOption(key: kCommConfKeyTheme, value: 'dark');
     unawaited(startFloadeControl());
   }

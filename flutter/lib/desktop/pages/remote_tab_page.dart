@@ -1,3 +1,4 @@
+import '../../floade/connection_status.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -479,6 +480,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       ));
     } else if (call.method == kWindowDisableGrabKeyboard) {
       // ???
+    } else if (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_connection_status') {
+      return floadeConnectionStatus(call.arguments as String, tabController.state.value.tabs.map((tab) => tab.key));
     } else if (call.method == "onDestroy" ||
         (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_disconnect')) {
       tabController.clear();

@@ -1,3 +1,4 @@
+import '../../floade/connection_status.dart';
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -96,7 +97,9 @@ class _FileManagerTabPageState extends State<FileManagerTabPage> {
               forceRelay: args['forceRelay'],
               connToken: args['connToken'],
             )));
-      } else if (call.method == "onDestroy" ||
+      } else if (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_connection_status') {
+      return floadeConnectionStatus(call.arguments as String, tabController.state.value.tabs.map((tab) => tab.key));
+    } else if (call.method == "onDestroy" ||
           (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_disconnect')) {
         tabController.clear();
       } else if (call.method == kWindowActionRebuild) {

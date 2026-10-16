@@ -1,3 +1,4 @@
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -51,7 +52,7 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'status':
       return {'deviceId': await bind.mainGetMyId(),
         'connection': jsonDecode(await bind.mainGetConnectStatus()),
-        'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
+        'autoConnectStatus': true, 'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
         'windows': rustDeskWinManager.getActiveWindows().where((id) => id > 0).toList(),
         'installedService': bind.mainIsInstalled()};
     case 'apply':
@@ -119,6 +120,10 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
       }
       final window = await rustDeskWinManager.newRemoteDesktop(id, password: password, forceRelay: relay);
       return {'windowId': window.windowId, 'state': 'connecting'};
+    case 'sessionStatus':
+      final id = p['windowId'] as int;
+      if (!rustDeskWinManager.getActiveWindows().contains(id)) return {'state': 'closed'};
+      return await DesktopMultiWindow.invokeMethod(id, 'floade_connection_status', p['deviceId']);
     case 'disconnect':
       final id = p['windowId'] as int;
       if (!(await rustDeskWinManager.getAllSubWindowIds()).contains(id)) throw StateError('Window absent');

@@ -35,3 +35,11 @@ Floade control exposes the native TCP/UDP/WebRTC punch options without modifying
 The managed local control exposes `accessGet` and `accessSet`, implemented in `flutter/lib/floade/access.dart`. This opts into the existing full access mode with an incoming ID allowlist; password authentication remains mandatory. IDs are self-reported and are a filter, not cryptographic device identity. An enabled empty list uses a nonmatching sentinel to deny all; disabling restores the previous native mode/filter. Changes apply to new incoming sessions. Existing Rust authentication, permission checks and Windows system-service installer paths are unchanged.
 
 Floade-need invokes the upstream native silent installer (printer=0) to create the independent `FloadeRemote` LocalSystem service in Program Files. Administrator/UAC/login-screen support requires actual Windows consent and service readiness; requesting installation alone does not establish either.
+
+## Windows relative mouse (Floade 0.1.29)
+
+Floade Windows sessions use foreground-only WM_INPUT counts, batched every 8 ms, instead of Flutter logical cursor positions. This preserves physical mouse counts across DPI scaling and removes cursor-warp events from the movement stream. The cursor is confined while enabled and released on toggle, focus loss, window movement or destruction. A lost capture exits relative mode. Ordinary pointer, keyboard and button delivery remains available outside this opt-in mode.
+
+Regression surface: `relative_mouse_model.dart` selects and cleans up the Floade Windows input path; `input_model.dart` blocks absolute canvas refresh/edge movement during that mode; `flutter_window.cpp` registers the plugin for main and remote subwindows; runner CMake includes the new implementation. New logic lives in `floade_raw_mouse.dart` and `floade_raw_mouse.cpp`. Other platforms and non-Floade builds retain their prior input path. No Rust, protocol, dependencies, authentication or incoming permission changes.
+
+Validation: raw-count delivery and lost-capture tests, existing shortcut tests, Flutter analysis and Windows release build. Physical mouse sensitivity in a real remote game still requires end-to-end verification.

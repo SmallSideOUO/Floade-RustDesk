@@ -1831,6 +1831,8 @@ class InputModel {
     bool moveCanvas = true,
     bool edgeScroll = false,
   }) {
+    // Canvas refresh/edge-exit callbacks must not warp a game's relative cursor.
+    if (MyTheme.floade && isWindows && relativeMouseMode.value) return null;
     if (isViewCamera) return null;
     double x = offset.dx;
     double y = max(0.0, offset.dy);

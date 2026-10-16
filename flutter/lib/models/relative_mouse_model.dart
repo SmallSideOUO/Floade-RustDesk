@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/utils/relative_mouse_accumulator.dart';
 import 'package:flutter_hbb/utils/floade_mouse_shortcut.dart';
+import 'package:flutter_hbb/utils/floade_raw_mouse.dart';
 import 'package:get/get.dart';
 
 import '../common.dart';
@@ -42,6 +43,8 @@ class RelativeMouseModel {
   });
 
   final RelativeMouseAccumulator _accumulator = RelativeMouseAccumulator();
+  final _floadeRawMouse = FloadeRawMouse();
+  bool get _useFloadeRawMouse => MyTheme.floade && isWindows;
 
   // Native relative mouse mode support (macOS only)
   // Uses CGAssociateMouseAndMouseCursorPosition to lock cursor and NSEvent monitor for raw delta.
@@ -320,6 +323,7 @@ class RelativeMouseModel {
 
   void onEnterOrLeaveImage(bool enter) {
     if (!enabled.value) return;
+    if (_useFloadeRawMouse) return;
 
     // Keep the shared pointer-in-image flag in sync.
     setPointerInsideImage(enter);
@@ -345,6 +349,7 @@ class RelativeMouseModel {
   void onWindowBlur() {
     _floadeShortcut.reset();
     if (!enabled.value) return;
+    if (_useFloadeRawMouse) { setRelativeMouseMode(false); return; }
 
     // Focus can change while the pointer is outside the window (e.g. taskbar activation).
     // Do not rely on the previous "pointer inside" state across focus boundaries.
@@ -418,7 +423,22 @@ class RelativeMouseModel {
       try {
         if (isDesktop) {
           final requestId = ++_enableRequestId;
-          if (isMacOS) {
+          if (_useFloadeRawMouse) {
+            _floadeRawMouse.start((dx, dy) {
+              if (enabled.value) _onNativeMouseDelta(dx, dy);
+            }, _disableWithCleanup).then((success) {
+              if (_enableRequestId != requestId) return;
+              if (success) {
+                _completeEnableRelativeMouseMode();
+              } else {
+                showToast(translate('rel-mouse-lock-failed-tip'));
+              }
+            }).catchError((Object e) {
+              if (_enableRequestId != requestId) return;
+              _disableWithCleanup();
+              showToast(translate('rel-mouse-lock-failed-tip'));
+            });
+          } else if (isMacOS) {
             // macOS: Use native relative mouse mode with CGAssociateMouseAndMouseCursorPosition
             // This locks the cursor in place and provides raw delta via NSEvent monitor.
             _enableNativeRelativeMouseMode().then((success) {
@@ -460,6 +480,7 @@ class RelativeMouseModel {
         return false;
       }
     } else {
+      if (_useFloadeRawMouse) { ++_enableRequestId; _floadeRawMouse.stop(); }
       // Best-effort marker for Rust rdev grab loop (ESC behavior).
       // Bypass keyboardPerm check to ensure Rust state is always synced,
       // even if permission was revoked while relative mode was active.
@@ -531,6 +552,7 @@ class RelativeMouseModel {
   /// Returns true if the event was handled in relative mode, false otherwise.
   bool handleRelativeMouseMove(Offset localPosition) {
     if (!enabled.value) return false;
+    if (_useFloadeRawMouse) return true;
 
     // macOS: Native mode handles delta via callback, skip Flutter-based handling.
     if (_isNativeRelativeMouseModeActive) {
@@ -909,6 +931,7 @@ class RelativeMouseModel {
 
   void _ensurePointerLockEngaged() {
     if (!enabled.value) return;
+    if (_useFloadeRawMouse) return;
     if (!isDesktop) return;
 
     setPointerInsideImage(true);
@@ -1033,6 +1056,7 @@ class RelativeMouseModel {
   /// Core cleanup logic shared by [_disableWithCleanup] and [dispose].
   /// Sends disable message to Rust, releases platform resources, and resets state.
   void _performCleanupCore() {
+    if (_useFloadeRawMouse) { ++_enableRequestId; _floadeRawMouse.stop(); }
     // Best-effort marker for Rust rdev grab loop (ESC behavior).
     // Bypass keyboardPerm check to ensure Rust state is always synced.
     _sendMouseMessageToSession(

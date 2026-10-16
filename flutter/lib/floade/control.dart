@@ -51,7 +51,8 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'status':
       return {'deviceId': await bind.mainGetMyId(),
         'connection': jsonDecode(await bind.mainGetConnectStatus()),
-        'engineVersion': '1.5.0', 'windows': rustDeskWinManager.getActiveWindows().where((id) => id > 0).toList(),
+        'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
+        'windows': rustDeskWinManager.getActiveWindows().where((id) => id > 0).toList(),
         'installedService': bind.mainIsInstalled()};
     case 'apply':
       final settings = Map<String, dynamic>.from(p['settings']);

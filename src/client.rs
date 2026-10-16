@@ -1786,6 +1786,7 @@ impl Client {
         conn_type: ConnType,
         switch_code: &str,
     ) -> ResultType<Stream> {
+        WebRTCStream::ensure_relay_allowed()?;
         let mut succeed = false;
         let mut uuid = "".to_owned();
         let mut ipv4 = true;
@@ -1849,6 +1850,7 @@ impl Client {
         conn_type: ConnType,
         ipv4: bool,
     ) -> ResultType<Stream> {
+        WebRTCStream::ensure_relay_allowed()?;
         let mut conn = connect_tcp(
             ipv4_to_ipv6(check_port(relay_server, RELAY_PORT), ipv4),
             CONNECT_TIMEOUT,

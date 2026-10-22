@@ -68,7 +68,7 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
     case 'status':
       return {'pid': pid, 'deviceId': await bind.mainGetMyId(),
         'connection': jsonDecode(await bind.mainGetConnectStatus()),
-        'autoConnectStatus': true, 'backgroundOnly': true, 'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
+        'autoConnectStatus': true, 'backgroundOnly': true, 'miniPreview': Platform.isWindows, 'engineVersion': '1.5.0', 'directOnly': Platform.resolvedExecutable.split(Platform.pathSeparator).last.toLowerCase() == 'floaderemote.exe',
         'windows': rustDeskWinManager.getActiveWindows().where((id) => id > 0).toList(),
         'installedService': bind.mainIsInstalled()};
     case 'apply':
@@ -140,6 +140,12 @@ Future<dynamic> _dispatch(String method, Map<String, dynamic> p) async {
       final id = p['windowId'] as int;
       if (!rustDeskWinManager.getActiveWindows().contains(id)) return {'state': 'closed'};
       return await DesktopMultiWindow.invokeMethod(id, 'floade_connection_status', p['deviceId']).timeout(const Duration(seconds: 3));
+    case 'miniPreview':
+      final id = p['windowId'] as int;
+      final action = p['action'] ?? 'open';
+      if (!Platform.isWindows || !['open', 'restore', 'collapse', 'status'].contains(action) ||
+          !rustDeskWinManager.getActiveWindows().contains(id)) throw const FormatException('Invalid preview window or action');
+      return await DesktopMultiWindow.invokeMethod(id, 'floade_mini_preview', action).timeout(const Duration(seconds: 3));
     case 'disconnect':
       final id = p['windowId'] as int;
       if (!(await rustDeskWinManager.getAllSubWindowIds()).contains(id)) throw StateError('Window absent');

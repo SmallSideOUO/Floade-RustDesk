@@ -1,5 +1,6 @@
 #include "flutter_window.h"
 #include "floade_raw_mouse.h"
+#include "floade_mini_preview.h"
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <texture_rgba_renderer/texture_rgba_renderer_plugin_c_api.h>
@@ -105,6 +106,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   RegisterFloadeRawMouse(flutter_controller_->engine()->GetRegistrarForPlugin("FloadeRawMouse"));
+  RegisterFloadeMiniPreview(flutter_controller_->engine()->GetRegistrarForPlugin("FloadeMiniPreview"));
 
   flutter::MethodChannel<> channel(
     flutter_controller_->engine()->messenger(),
@@ -152,6 +154,7 @@ bool FlutterWindow::OnCreate() {
         reinterpret_cast<flutter::FlutterViewController *>(controller);
     auto *registry = flutter_view_controller->engine();
     RegisterFloadeRawMouse(registry->GetRegistrarForPlugin("FloadeRawMouse"));
+    RegisterFloadeMiniPreview(registry->GetRegistrarForPlugin("FloadeMiniPreview"));
     TextureRgbaRendererPluginCApiRegisterWithRegistrar(
         registry->GetRegistrarForPlugin("TextureRgbaRendererPlugin"));
     FlutterGpuTextureRendererPluginCApiRegisterWithRegistrar(

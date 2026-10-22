@@ -9,6 +9,7 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "floade_raw_mouse.cpp"
+  "floade_mini_preview.cpp"
   "main.cpp"
   "utils.cpp"
   "win32_desktop.cpp"

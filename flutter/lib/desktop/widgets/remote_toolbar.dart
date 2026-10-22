@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import '../../floade/mini_preview.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -443,6 +444,7 @@ class RemoteToolbar extends StatefulWidget {
   final Function(int, Function(bool)) onEnterOrLeaveImageSetter;
   final Function(int) onEnterOrLeaveImageCleaner;
   final Function(VoidCallback) setRemoteState;
+  final Future<void> Function()? onMiniPreview;
 
   RemoteToolbar({
     Key? key,
@@ -452,6 +454,7 @@ class RemoteToolbar extends StatefulWidget {
     required this.onEnterOrLeaveImageSetter,
     required this.onEnterOrLeaveImageCleaner,
     required this.setRemoteState,
+    this.onMiniPreview,
   }) : super(key: key);
 
   @override
@@ -850,6 +853,14 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));
     }
     if (!isWeb) toolbarItems.add(_RecordMenu());
+    if (widget.onMiniPreview != null) {
+      toolbarItems.add(_IconMenuButton(
+        icon: const Icon(Icons.picture_in_picture_alt, size: 18, color: Colors.white),
+        tooltip: miniPreviewText('遠端小窗（唯讀）', 'Mini preview (view only)'),
+        color: _ToolbarTheme.blueColor, hoverColor: _ToolbarTheme.hoverBlueColor,
+        onPressed: () => miniPreviewAction(context, widget.onMiniPreview!),
+      ));
+    }
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
     final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));
     // innerAxis: how the toolbar icons themselves flow.

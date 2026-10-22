@@ -23,6 +23,7 @@ import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
 import 'macos_full_screen_focus_recovery.dart';
+import '../../floade/mini_preview.dart';
 
 import 'package:flutter_hbb/native/custom_cursor.dart'
     if (dart.library.html) 'package:flutter_hbb/web/custom_cursor.dart';
@@ -64,6 +65,9 @@ class RemotePage extends StatefulWidget {
   final DesktopTabController? tabController;
 
   FFI get ffi => (_lastState.value! as _RemotePageState)._ffi;
+
+  Future<void> enterMiniPreview() =>
+      (_lastState.value! as _RemotePageState)._enterMiniPreview();
 
   void releaseMacOSInputForTabTransfer() {
     if (!isMacOS) return;
@@ -498,6 +502,7 @@ class _RemotePageState extends State<RemotePage>
   @override
   void onWindowFocus() {
     super.onWindowFocus();
+    if (MyTheme.floade && isWindows && floadeMiniPreview.enabled.value) return;
     // See [onWindowBlur].
     if (isWindows || isMacOS) {
       _isWindowBlur = false;
@@ -713,6 +718,7 @@ class _RemotePageState extends State<RemotePage>
             }
           },
           setRemoteState: setState,
+          onMiniPreview: MyTheme.floade && isWindows ? _enterMiniPreview : null,
         );
 
     bodyWidget() {
@@ -828,7 +834,16 @@ class _RemotePageState extends State<RemotePage>
           ChangeNotifierProvider.value(value: _ffi.cursorModel),
           ChangeNotifierProvider.value(value: _ffi.canvasModel),
           ChangeNotifierProvider.value(value: _ffi.recordingModel),
-        ], child: buildBody(context)));
+        ], child: MyTheme.floade && isWindows
+            ? Obx(() => floadeMiniPreview.enabled.value
+                ? MiniPreview(ffi: _ffi) : buildBody(context))
+            : buildBody(context)));
+  }
+
+  Future<void> _enterMiniPreview() async {
+    _cursorOverImage.value = false;
+    _rawKeyFocusNode.unfocus();
+    await floadeMiniPreview.enter(_ffi);
   }
 
   void enterView(PointerEnterEvent evt) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../floade/mini_preview.dart';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -406,6 +407,7 @@ class _DesktopTabState extends State<DesktopTab>
   }
 
   _saveFrame({bool? flush}) async {
+    if (MyTheme.floade && isWindows && floadeMiniPreview.enabled.value) return;
     try {
       if (tabType == DesktopTabType.main) {
         await saveWindowPosition(WindowType.Main, flush: flush);

@@ -1,4 +1,5 @@
 import '../../floade/connection_status.dart';
+import '../../floade/mini_preview.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -40,7 +41,7 @@ class ConnectionTabPage extends StatefulWidget {
   State<ConnectionTabPage> createState() => _ConnectionTabPageState(params);
 }
 
-class _ConnectionTabPageState extends State<ConnectionTabPage> {
+class _ConnectionTabPageState extends State<ConnectionTabPage> with MultiWindowListener {
   final tabController =
       Get.put(DesktopTabController(tabType: DesktopTabType.remoteScreen));
   final contentKey = UniqueKey();
@@ -114,6 +115,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
   @override
   void initState() {
     super.initState();
+    if (MyTheme.floade && isWindows) DesktopMultiWindow.addListener(this);
 
     if (!_isScreenRectSet) {
       Future.delayed(Duration.zero, () {
@@ -129,6 +131,25 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
     }
   }
 
+  Future<void> _enterMiniPreview() async {
+    if (tabController.length == 0) return;
+    final page = tabController.state.value.selectedTabInfo.page;
+    if (page is RemotePage) await page.enterMiniPreview();
+  }
+
+  @override
+  void onWindowMinimize() {
+    if (floadeMiniPreview.automatic && !floadeMiniPreview.enabled.value) {
+      miniPreviewAction(context, _enterMiniPreview);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (MyTheme.floade && isWindows) DesktopMultiWindow.removeListener(this);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final child = Scaffold(
@@ -139,6 +160,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         tail: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (MyTheme.floade && isWindows) MiniPreviewButton(onEnter: _enterMiniPreview),
             _RelativeMouseModeHint(tabController: tabController),
             const AddButton(),
           ],
@@ -361,6 +383,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 
   void onRemoveId(String id) async {
     if (tabController.state.value.tabs.isEmpty) {
+      if (MyTheme.floade && isWindows) await floadeMiniPreview.restore();
       // Keep calling until the window status is hidden.
       //
       // Workaround for Windows:
@@ -391,6 +414,10 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
   }
 
   Future<bool> handleWindowCloseButton() async {
+    if (MyTheme.floade && isWindows && floadeMiniPreview.enabled.value) {
+      if (!floadeMiniPreview.collapsed.value) await floadeMiniPreview.collapse();
+      return false;
+    }
     final connLength = tabController.length;
     if (connLength == 1) {
       if (await desktopTryShowTabAuditDialogCloseCancelled(
@@ -481,9 +508,20 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
     } else if (call.method == kWindowDisableGrabKeyboard) {
       // ???
     } else if (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_connection_status') {
-      return floadeConnectionStatus(call.arguments as String, tabController.state.value.tabs.map((tab) => tab.key));
+      return {...floadeConnectionStatus(call.arguments as String, tabController.state.value.tabs.map((tab) => tab.key)),
+        if (isWindows) 'preview': floadeMiniPreview.status};
+    } else if (MyTheme.floade && isWindows && call.method == 'floade_mini_preview') {
+      switch (call.arguments) {
+        case 'open': await _enterMiniPreview(); break;
+        case 'restore': await floadeMiniPreview.restore(); break;
+        case 'collapse': await floadeMiniPreview.collapse(); break;
+        case 'status': break;
+        default: throw const FormatException('Invalid preview action');
+      }
+      return floadeMiniPreview.status;
     } else if (call.method == "onDestroy" ||
         (const bool.fromEnvironment('FLOADE_REMOTE') && call.method == 'floade_disconnect')) {
+      if (MyTheme.floade && isWindows) await floadeMiniPreview.restore();
       tabController.clear();
     } else if (call.method == kWindowActionRebuild) {
       reloadCurrentWindow();

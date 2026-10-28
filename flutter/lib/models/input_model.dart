@@ -18,6 +18,7 @@ import '../../models/platform_model.dart';
 import '../../models/state_model.dart';
 import 'input_modifier_utils.dart';
 import 'relative_mouse_model.dart';
+import '../utils/floade_mouse_buttons.dart';
 import '../common.dart';
 import '../consts.dart';
 
@@ -448,6 +449,8 @@ class InputModel {
   // mouse
   final isPhysicalMouse = false.obs;
   int _lastButtons = 0;
+  final _floadeMouseButtons = FloadeMouseButtons();
+  bool get _useFloadeMouseButtons => MyTheme.floade && isWindows;
   Offset lastMousePos = Offset.zero;
   int _lastWheelTsUs = 0;
 
@@ -507,11 +510,15 @@ class InputModel {
       getPointerInsideImage: () => _pointerInsideImage,
       setPointerInsideImage: (inside) => _pointerInsideImage = inside,
     );
-    _relativeMouse.onDisabled = () => onRelativeMouseModeDisabled?.call();
+    _relativeMouse.onDisabled = () {
+      _releaseFloadeMouseButtons();
+      onRelativeMouseModeDisabled?.call();
+    };
     _relativeMouse.onShortcut = toggleRelativeMouseModeWithKeyRelease;
 
     // Sync relative mouse mode state to global state for UI components (e.g., tab bar hint).
     _relativeMouseModeDisposer = ever(relativeMouseMode, (bool value) {
+      if (value) _releaseFloadeMouseButtons();
       final peerId = id;
       if (peerId.isNotEmpty) {
         stateGlobal.relativeMouseModeState[peerId] = value;
@@ -1083,6 +1090,37 @@ class InputModel {
     return out;
   }
 
+  bool _sendFloadeMouseButtons(PointerEvent event) {
+    if (!_useFloadeMouseButtons) return false;
+    if (!keyboardPerm || isViewOnly || isViewCamera) {
+      _releaseFloadeMouseButtons();
+      return true;
+    }
+    _floadeMouseButtons.update(event.buttons, (button, down) {
+      final message = {
+        'type': down ? _kMouseEventDown : _kMouseEventUp,
+        'buttons': button,
+      };
+      if (_relativeMouse.enabled.value) {
+        _relativeMouse.sendRelativeMouseButton(message);
+      } else {
+        handleMouse(message, _pointerPositionForRemoteCanvas(event));
+      }
+    });
+    return true;
+  }
+
+  void _releaseFloadeMouseButtons() {
+    _floadeMouseButtons.release((button, _) {
+      unawaited(bind.sessionSendMouse(
+        sessionId: sessionId,
+        msg: json.encode({'type': 'up', 'buttons': mouseButtonsToPeer(button)}),
+      ).catchError((Object error) {
+        debugPrint('[InputModel] failed to release mouse button: $error');
+      }));
+    });
+  }
+
   /// Send a mouse tap event(down and up).
   Future<void> tap(MouseButtons button) async {
     await sendMouse('down', button);
@@ -1137,6 +1175,7 @@ class InputModel {
   }
 
   void enterOrLeave(bool enter) {
+    if (!enter) _releaseFloadeMouseButtons();
     toReleaseKeys.release(handleKeyEvent);
     toReleaseRawKeys.release(handleRawKeyEvent);
     _pointerMovedAfterEnter = false;
@@ -1275,6 +1314,7 @@ class InputModel {
   }
 
   void disposeRelativeMouseMode() {
+    _releaseFloadeMouseButtons();
     _relativeMouse.dispose();
     onRelativeMouseModeDisabled = null;
     // Cancel the relative mouse mode observer and clean up global state.
@@ -1287,6 +1327,7 @@ class InputModel {
   }
 
   void onWindowBlur() {
+    _releaseFloadeMouseButtons();
     _relativeMouse.onWindowBlur();
   }
 
@@ -1554,6 +1595,7 @@ class InputModel {
       }
     }
     if (isPhysicalMouse.value) {
+      if (_sendFloadeMouseButtons(e)) return;
       // In relative mouse mode, send button events without position.
       // Use _relativeMouse.enabled.value consistently with the guard above.
       if (_relativeMouse.enabled.value) {
@@ -1577,6 +1619,7 @@ class InputModel {
 
     if (e.kind != ui.PointerDeviceKind.mouse) return;
     if (isPhysicalMouse.value) {
+      if (_sendFloadeMouseButtons(e)) return;
       // In relative mouse mode, send button events without position.
       // Use _relativeMouse.enabled.value consistently with the guard above.
       if (_relativeMouse.enabled.value) {
@@ -1605,9 +1648,12 @@ class InputModel {
       _queryOtherWindowCoords = false;
     }
     if (isPhysicalMouse.value) {
+      final floadeButtons = _sendFloadeMouseButtons(e);
       if (!_relativeMouse.handleRelativeMouseMove(e.localPosition)) {
         final canvasPosition = _pointerPositionForRemoteCanvas(e);
-        handleMouse(_getMouseEvent(e, _kMouseEventMove), canvasPosition,
+        handleMouse(
+            floadeButtons ? getMouseEventMove() : _getMouseEvent(e, _kMouseEventMove),
+            canvasPosition,
             edgeScroll: useEdgeScroll);
       }
     }

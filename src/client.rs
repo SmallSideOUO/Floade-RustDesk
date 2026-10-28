@@ -4078,6 +4078,7 @@ pub fn start_video_thread<F, T>(
                                         || presentation_budget.should_present(
                                             video_queue.read().unwrap().len(),
                                             presentation_start.elapsed(),
+                                            session.lc.read().unwrap().custom_fps.lock().unwrap().unwrap_or(60),
                                         )
                                     {
                                         video_callback(

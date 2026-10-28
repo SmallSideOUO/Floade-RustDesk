@@ -138,6 +138,51 @@ pub(super) fn handle(key: Key, press: bool) -> Option<bool> {
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
+    #[test]
+    fn physical_game_keys_have_independent_down_and_up_events() {
+        let mut held = HashSet::new();
+        let mut shortcut = ShortcutState::default();
+        let chord = parse("Ctrl+Alt").unwrap();
+        for (key, scan, down) in [
+            (Key::KeyW, 0x11, true),
+            (Key::ShiftLeft, 0x2A, true),
+            (Key::Space, 0x39, true),
+            (Key::Space, 0x39, false),
+            (Key::KeyW, 0x11, false),
+            (Key::ShiftLeft, 0x2A, false),
+        ] {
+            assert_eq!(shortcut.event(key, down, &chord), (false, false));
+            let event = Event {
+                time: std::time::SystemTime::now(),
+                unicode: None,
+                event_type: if down {
+                    EventType::KeyPress(key)
+                } else {
+                    EventType::KeyRelease(key)
+                },
+                platform_code: 0,
+                position_code: scan,
+                usb_hid: 0,
+                extra_data: 0,
+            };
+            let events = event_to_key_events("windows".into(), &event, KeyboardMode::Map, Some(0));
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].chr(), scan);
+            assert_eq!(events[0].down, down);
+            assert!(!events[0].press);
+            if down {
+                held.insert(scan);
+            } else {
+                held.remove(&scan);
+            }
+            if scan == 0x39 && down {
+                assert_eq!(held.len(), 3);
+            }
+        }
+        assert!(held.is_empty());
+    }
+
     #[test]
     fn default_chord_toggles_in_either_order_without_repeat_or_orphan_releases() {
         let shortcut = parse("Ctrl+Alt").unwrap();

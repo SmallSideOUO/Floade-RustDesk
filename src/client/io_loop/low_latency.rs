@@ -59,9 +59,16 @@ impl<T: InvokeUiSession> Remote<T> {
             "session": lc.session_id,
             "peer_version": lc.peer_info.as_ref().map(|peer| peer.version.as_str()),
             "low_latency_enabled": client::low_latency::enabled(),
+            "video_transport": if self.split_video.as_ref().map_or(false, |c| c.active()) {
+                "independent-p2p"
+            } else { "shared" },
+            "video_channel_pending_events": self.split_video.as_ref().map(|c| c.pending_events()),
             "direct": direct,
             "shared_path_delay_ms": (feedback.last_delay_ms > 0).then_some(feedback.last_delay_ms),
             "presented_fps": fps,
+            "decode_capacity_fps": self.video_threads.iter().map(|(display, thread)|
+                (display.to_string(), *thread.decode_fps.read().unwrap())
+            ).collect::<HashMap<_, _>>(),
             "decode_queue_frames": self.video_threads.iter().map(|(display, thread)|
                 (display.to_string(), thread.video_queue.read().unwrap().len())
             ).collect::<HashMap<_, _>>(),

@@ -101,6 +101,7 @@ message Features {
   bool privacy_mode = 1;
   bool terminal = 2;
   bool port_forward_mux = 3;
+  bool split_video = 4;
 }
 
 message CodecAbility {
@@ -997,6 +998,20 @@ message PortForwardChannel {
   }
 }
 
+// Signaled only over the authenticated desktop control connection. The SDP's DTLS
+// fingerprint binds the independent video connection to that authenticated peer.
+message VideoChannelSignal {
+  enum Kind {
+    Offer = 0;
+    Answer = 1;
+    Candidate = 2;
+    Ready = 3;
+    Cancel = 4;
+  }
+  Kind kind = 1;
+  string value = 2;
+}
+
 message Message {
   oneof union {
     SignedId signed_id = 3;
@@ -1030,5 +1045,6 @@ message Message {
     TerminalAction terminal_action = 31;
     TerminalResponse terminal_response = 32;
     PortForwardChannel port_forward_channel = 33;
+    VideoChannelSignal video_channel_signal = 34;
   }
 }

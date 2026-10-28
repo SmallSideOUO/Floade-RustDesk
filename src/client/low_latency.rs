@@ -71,22 +71,19 @@ impl BitrateFeedback {
 #[derive(Default)]
 pub struct PresentationBudget {
     last_presented: Option<Duration>,
-    skipped_since_present: bool,
 }
 
 impl PresentationBudget {
-    pub fn should_present(&mut self, queued: usize, now: Duration) -> bool {
+    pub fn should_present(&mut self, queued: usize, now: Duration, fps: usize) -> bool {
         // Decode every predictive frame, but spend UI work on the newest image.
-        // Always allow one decode-only frame to catch up, even if painting was slow.
-        let due = self.last_presented.map_or(true, |last| {
-            now.saturating_sub(last) >= Duration::from_millis(16)
-        });
-        if queued == 0 || self.last_presented.is_none() || (due && self.skipped_since_present) {
+        let interval = Duration::from_nanos(1_000_000_000 / fps.clamp(1, 120) as u64);
+        let due = self
+            .last_presented
+            .map_or(true, |last| now.saturating_sub(last) >= interval);
+        if queued == 0 || due {
             self.last_presented = Some(now);
-            self.skipped_since_present = false;
             true
         } else {
-            self.skipped_since_present = true;
             false
         }
     }
@@ -128,12 +125,25 @@ mod tests {
     #[test]
     fn queued_frames_skip_presentation_without_starving_the_display() {
         let mut budget = PresentationBudget::default();
-        assert!(budget.should_present(20, Duration::ZERO));
-        assert!(!budget.should_present(19, Duration::from_millis(5)));
-        assert!(!budget.should_present(18, Duration::from_millis(10)));
-        assert!(budget.should_present(17, Duration::from_millis(16)));
-        assert!(!budget.should_present(16, Duration::from_millis(100)));
-        assert!(budget.should_present(15, Duration::from_millis(110)));
-        assert!(budget.should_present(0, Duration::from_millis(111)));
+        assert!(budget.should_present(20, Duration::ZERO, 60));
+        assert!(!budget.should_present(19, Duration::from_millis(5), 60));
+        assert!(!budget.should_present(18, Duration::from_millis(10), 60));
+        assert!(budget.should_present(17, Duration::from_millis(17), 60));
+        assert!(budget.should_present(16, Duration::from_millis(100), 60));
+        assert!(!budget.should_present(15, Duration::from_millis(110), 60));
+        assert!(budget.should_present(0, Duration::from_millis(111), 60));
+    }
+
+    #[test]
+    fn high_fps_backlog_does_not_wait_for_a_sixty_hz_presentation_budget() {
+        for fps in [90, 120] {
+            let mut budget = PresentationBudget::default();
+            let interval = Duration::from_nanos(1_000_000_000 / fps as u64);
+            assert!(budget.should_present(3, Duration::ZERO, fps));
+            assert!(!budget.should_present(2, Duration::from_millis(1), fps));
+            assert!(budget.should_present(1, interval, fps));
+            assert!(budget.should_present(1, interval * 2, fps));
+            assert!(budget.should_present(0, interval * 2 + Duration::from_millis(1), fps));
+        }
     }
 }

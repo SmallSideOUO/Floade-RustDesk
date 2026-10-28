@@ -72,6 +72,7 @@ use std::{
 };
 
 mod low_latency;
+mod split_video;
 
 pub struct Remote<T: InvokeUiSession> {
     handler: Session<T>,
@@ -105,6 +106,7 @@ pub struct Remote<T: InvokeUiSession> {
     sent_close_reason: bool,
     cursor_dedupe: CursorDedupe,
     low_latency: Option<client::low_latency::BitrateFeedback>,
+    split_video: Option<crate::split_video::VideoChannel>,
 }
 
 #[derive(Default)]
@@ -160,6 +162,7 @@ impl<T: InvokeUiSession> Remote<T> {
             sent_close_reason: false,
             cursor_dedupe: Default::default(),
             low_latency,
+            split_video: None,
         }
     }
 
@@ -281,6 +284,9 @@ impl<T: InvokeUiSession> Remote<T> {
 
                 loop {
                     tokio::select! {
+                        event = crate::split_video::next(&mut self.split_video) => {
+                            if !self.handle_split_video_event(event, &mut peer).await { break; }
+                        }
                         res = peer.next() => {
                             if let Some(res) = res {
                                 match res {
@@ -416,6 +422,7 @@ impl<T: InvokeUiSession> Remote<T> {
                     }
                 }
                 log::debug!("Exit io_loop of id={}", self.handler.get_id());
+                self.split_video = None;
                 // Stop client audio server.
                 if let Some(s) = self.stop_voice_call_sender.take() {
                     s.send(()).ok();
@@ -1537,6 +1544,9 @@ impl<T: InvokeUiSession> Remote<T> {
     async fn handle_msg_from_peer(&mut self, data: &[u8], peer: &mut Stream) -> bool {
         if let Ok(msg_in) = Message::parse_from_bytes(&data) {
             match msg_in.union {
+                Some(message::Union::VideoChannelSignal(signal)) if self.is_connected => {
+                    return self.handle_split_video_signal(signal, peer).await;
+                }
                 Some(message::Union::VideoFrame(vf)) => {
                     if !self.first_frame {
                         self.first_frame = true;
@@ -1589,6 +1599,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
                     }
                     Some(login_response::Union::PeerInfo(pi)) => {
+                        let split_video_supported = pi.features.split_video;
                         let peer_version = pi.version.clone();
                         let peer_platform = pi.platform.clone();
                         self.set_peer_info(&pi);
@@ -1656,6 +1667,12 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
 
                         self.is_connected = true;
+                        if split_video_supported && self.handler.is_default()
+                            && peer.is_secured() && crate::split_video::enabled()
+                            && self.split_video.is_none()
+                        {
+                            self.split_video = Some(crate::split_video::VideoChannel::offer());
+                        }
                     }
                     _ => {}
                 },

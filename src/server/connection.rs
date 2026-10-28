@@ -73,6 +73,8 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 
 #[cfg(windows)]
 use crate::virtual_display_manager;
+
+mod split_video;
 pub type Sender = mpsc::UnboundedSender<(Instant, Arc<Message>)>;
 
 const FAILURE_IDX_ID_WHITELIST: usize = 2;
@@ -357,6 +359,7 @@ pub struct Connection {
     inner: ConnInner,
     display_idx: usize,
     stream: super::Stream,
+    split_video: Option<crate::split_video::VideoChannel>,
     server: super::ServerPtrWeak,
     hash: Hash,
     read_jobs: Vec<fs::TransferJob>,
@@ -573,6 +576,7 @@ impl Connection {
             // with the primary index returned with the refreshed display snapshot.
             display_idx: 0,
             stream,
+            split_video: None,
             server,
             hash,
             read_jobs: Vec::new(),
@@ -1071,13 +1075,21 @@ impl Connection {
                         break;
                     }
                 }
-                Some((instant, value)) = rx_video.recv() => {
+                event = crate::split_video::next(&mut conn.split_video) => {
+                    if !conn.handle_split_video_event(event).await { break; }
+                }
+                Some((instant, value)) = rx_video.recv(), if crate::split_video::can_take_video(&conn.split_video) => {
                     if !conn.video_ack_required {
                         if let Some(message::Union::VideoFrame(vf)) = &value.union {
                             video_service::notify_video_frame_fetched(vf.display as usize, id, Some(instant.into()));
                         }
                     }
-                    if let Err(err) = conn.stream.send(&value as &Message).await {
+                    let result = if let Some(channel) = conn.split_video.as_ref().filter(|c| c.active()) {
+                        channel.send_video(value)
+                    } else {
+                        conn.stream.send(&value as &Message).await
+                    };
+                    if let Err(err) = result {
                         conn.on_close(&err.to_string(), false).await;
                         break;
                     }
@@ -2073,6 +2085,7 @@ impl Connection {
         pi.sas_enabled = sas_enabled;
         pi.features = Some(Features {
             privacy_mode: privacy_mode::is_privacy_mode_supported(),
+            split_video: crate::split_video::enabled() && self.stream.is_secured(),
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             terminal,
             ..Default::default()
@@ -3146,6 +3159,9 @@ impl Connection {
                 return true;
             }
             match msg.union {
+                Some(message::Union::VideoChannelSignal(signal)) => {
+                    return self.handle_split_video_signal(signal).await;
+                }
                 #[allow(unused_mut)]
                 Some(message::Union::MouseEvent(mut me)) => {
                     if self.is_authed_view_camera_conn() {
@@ -6101,6 +6117,7 @@ impl Connection {
             Some(message::Union::TerminalAction(_)) => "terminal_action",
             Some(message::Union::TerminalResponse(_)) => "terminal_response",
             Some(message::Union::PortForwardChannel(_)) => "port_forward_channel",
+            Some(message::Union::VideoChannelSignal(_)) => "video_channel_signal",
             Some(message::Union::Misc(misc)) => Self::misc_message_family(misc),
             Some(_) => "message.other",
             None => "empty",
@@ -7824,6 +7841,14 @@ mod test {
 
         for (conn_type, messages) in cases {
             assert_scopes(conn_type, messages);
+        }
+        let mut video_signal = Message::new();
+        video_signal.set_video_channel_signal(VideoChannelSignal::new());
+        assert_scopes(AuthConnType::Remote, [(video_signal.clone(), None)]);
+        for scope in [AuthConnType::FileTransfer, AuthConnType::Terminal,
+            AuthConnType::PortForward, AuthConnType::ViewCamera]
+        {
+            assert_scopes(scope, [(video_signal.clone(), Some("video_channel_signal"))]);
         }
     }
 
